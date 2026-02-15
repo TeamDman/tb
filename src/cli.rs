@@ -9,8 +9,8 @@ pub struct Cli {
     #[facet(flatten)]
     pub builtins: FigueBuiltins,
 
-    #[facet(args::subcommand, default)]
-    pub command: Command,
+    #[facet(args::subcommand)]
+    pub command: Option<Command>,
 }
 
 #[derive(Facet, Debug, Default)]
@@ -28,8 +28,22 @@ pub enum Command {
     Status,
     Home,
     Cache,
-    Hotkey {
-        #[facet(default, args::positional)]
-        expression: Option<String>,
+    Hotkey(HotkeyArgs),
+}
+
+#[derive(Facet, Debug)]
+pub struct HotkeyArgs {
+    #[facet(args::subcommand, default)]
+    pub command: HotkeyCommand,
+}
+
+#[derive(Facet, Debug, Default)]
+#[repr(u8)]
+pub enum HotkeyCommand {
+    #[default]
+    Show,
+    Set {
+        #[facet(args::positional)]
+        expression: String,
     },
 }

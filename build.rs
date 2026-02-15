@@ -1,7 +1,16 @@
 use std::process::Command;
 
 fn main() {
+    add_exe_resources();
     add_git_revision();
+}
+
+fn add_exe_resources() {
+    println!("cargo:rerun-if-changed=resources");
+
+    embed_resource::compile("resources/app.rc", embed_resource::NONE)
+        .manifest_required()
+        .expect("failed to embed resources");
 }
 
 fn add_git_revision() {

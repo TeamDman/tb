@@ -27,6 +27,7 @@ windows = { version = "0.62.0", features = [
 ] }
 
 [build-dependencies]
+embed-resource = "3.0.6"
 
 [lints.rust]
 ambiguous_negative_literals = "warn"

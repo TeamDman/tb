@@ -10,7 +10,7 @@ Taskbar toggle utility for programmatic control of "Automatically hide the taskb
 - `--help` and `--version` (version includes git revision from `build.rs`)
 - taskbar commands: `toggle`, `status`
 - path commands: `home`, `cache`
-- configurable hotkey command: `hotkey [EXPRESSION]`
+- configurable hotkey commands: `hotkey show`, `hotkey set <EXPRESSION>`
 - default no-args behavior launches tray mode (`run`)
 
 ## Tray behavior
@@ -31,16 +31,19 @@ When running in tray mode:
 
 ## Hotkey CLI
 
-- `tb hotkey` prints the current configured hotkey expression
-- `tb hotkey <EXPRESSION>` parses, normalizes, validates, and saves the hotkey
+- `tb hotkey show` prints the current configured hotkey expression
+- `tb hotkey set <EXPRESSION>` parses, normalizes, validates, and saves the hotkey
+
+`tb hotkey` defaults to `show`.
 
 Examples:
 
 ```powershell
 tb hotkey
-tb hotkey ctrl+shift+b
-tb hotkey win+alt+f12
-tb hotkey f9
+tb hotkey show
+tb hotkey set ctrl+shift+b
+tb hotkey set win+alt+f12
+tb hotkey set f9
 ```
 
 The expression is persisted under the app home directory in `hotkey.txt`.
@@ -55,7 +58,8 @@ tb toggle
 tb home
 tb cache
 tb hotkey
-tb hotkey ctrl+shift+b
+tb hotkey show
+tb hotkey set ctrl+shift+b
 tb run
 ```
 

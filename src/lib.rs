@@ -7,7 +7,7 @@ mod paths;
 mod taskbar;
 mod tray;
 
-use crate::cli::{Cli, Command};
+use crate::cli::{Cli, Command, HotkeyCommand};
 const VERSION: &str = concat!(
     env!("CARGO_PKG_VERSION"),
     " (rev ",
@@ -30,7 +30,9 @@ pub fn main() -> eyre::Result<()> {
 
     init_tracing(cli.global.debug)?;
 
-    match cli.command {
+    let command = cli.command.unwrap_or(Command::Run);
+
+    match command {
         Command::Run => tray::run_tray(VERSION),
         Command::Toggle => {
             let enabled = taskbar::toggle_taskbar_auto_hide()?;
@@ -54,17 +56,18 @@ pub fn main() -> eyre::Result<()> {
             println!("{}", cache.path().display());
             Ok(())
         }
-        Command::Hotkey { expression } => {
-            if let Some(expression) = expression {
+        Command::Hotkey(args) => match args.command {
+            HotkeyCommand::Set { expression } => {
                 let hotkey = hotkey::save_hotkey_expression(&expression)?;
                 println!("{}", hotkey.expression);
                 Ok(())
-            } else {
+            }
+            HotkeyCommand::Show => {
                 let hotkey = hotkey::load_hotkey()?;
                 println!("{}", hotkey.expression);
                 Ok(())
             }
-        }
+        },
     }
 }
 
