@@ -1,0 +1,51 @@
+[package]
+name = "tb"
+version = "0.1.0"
+edition = "2024"
+authors = ["TeamDman"]
+description = "Taskbar auto-hide toggle utility with tray and global hotkey"
+license = "MPL-2.0"
+readme = "README.md"
+
+[dependencies]
+color-eyre = "0.6.5"
+eyre = "0.6.12"
+tracing = "0.1.41"
+tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
+directories-next = "2"
+facet = { git = "https://github.com/facet-rs/facet", branch = "main", version = "0.43" }
+figue = { git = "https://github.com/bearcove/figue", branch = "main" }
+arboard = "3.6.1"
+windows = { version = "0.62.0", features = [
+  "Win32_Foundation",
+  "Win32_Graphics_Gdi",
+  "Win32_System_LibraryLoader",
+  "Win32_UI_Shell",
+  "Win32_UI_Input_KeyboardAndMouse",
+  "Win32_UI_WindowsAndMessaging",
+  "Win32_System_Console",
+] }
+
+[build-dependencies]
+
+[lints.rust]
+ambiguous_negative_literals = "warn"
+missing_debug_implementations = "warn"
+redundant_imports = "warn"
+redundant_lifetimes = "warn"
+trivial_numeric_casts = "warn"
+unsafe_op_in_unsafe_fn = "warn"
+unused_lifetimes = "warn"
+
+[lints.clippy]
+cargo = { level = "warn", priority = -1 }
+complexity = { level = "warn", priority = -1 }
+correctness = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+perf = { level = "warn", priority = -1 }
+style = { level = "warn", priority = -1 }
+suspicious = { level = "warn", priority = -1 }
+multiple_crate_versions = "allow"
+module_inception = "allow"
+allow_attributes = "deny"
+undocumented_unsafe_blocks = "warn"
