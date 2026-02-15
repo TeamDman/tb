@@ -1,9 +1,13 @@
 use crate::hotkey::{self, HotkeyRegistration};
 use crate::taskbar;
 use eyre::{Context, ContextCompat, Result, eyre};
+use std::ffi::c_void;
 use std::sync::OnceLock;
 use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, POINT, WPARAM};
-use windows::Win32::System::Console::{AllocConsole, FreeConsole};
+use windows::Win32::System::Console::{
+    AllocConsole, CTRL_BREAK_EVENT, CTRL_C_EVENT, CTRL_CLOSE_EVENT, FreeConsole,
+    GetConsoleProcessList, SetConsoleCtrlHandler,
+};
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows::Win32::UI::Input::KeyboardAndMouse::{RegisterHotKey, UnregisterHotKey};
 use windows::Win32::UI::Shell::{
@@ -20,7 +24,7 @@ use windows::Win32::UI::WindowsAndMessaging::{
     WM_CONTEXTMENU, WM_CREATE, WM_DESTROY, WM_HOTKEY, WM_LBUTTONDBLCLK, WM_RBUTTONUP, WM_USER,
     WNDCLASSW, WS_OVERLAPPEDWINDOW,
 };
-use windows::core::{HSTRING, PCWSTR, w};
+use windows::core::{BOOL, HSTRING, PCWSTR, w};
 
 const HOTKEY_ID: i32 = 1;
 const TRAY_ICON_ID: u32 = 1;
@@ -36,6 +40,7 @@ static TRAY_VERSION: OnceLock<&'static str> = OnceLock::new();
 static TRAY_HOTKEY: OnceLock<HotkeyRegistration> = OnceLock::new();
 static TRAY_HOTKEY_EXPRESSION: OnceLock<String> = OnceLock::new();
 static WM_TASKBAR_CREATED: OnceLock<u32> = OnceLock::new();
+static TRAY_HWND: OnceLock<isize> = OnceLock::new();
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum ConsoleMode {
@@ -97,6 +102,13 @@ impl TrayState {
 }
 
 pub fn run_tray(version: &'static str) -> Result<()> {
+    let inherited_console = is_inheriting_console();
+    if inherited_console {
+        attach_ctrl_c_handler()?;
+    } else {
+        detach_default_console_if_not_inherited();
+    }
+
     let hotkey = hotkey::load_hotkey()?;
     let _ = TRAY_VERSION.set(version);
     let _ = TRAY_HOTKEY.set(hotkey.registration);
@@ -105,11 +117,55 @@ pub fn run_tray(version: &'static str) -> Result<()> {
     let _ = WM_TASKBAR_CREATED.set(taskbar_created);
 
     let hwnd = create_window()?;
+    let _ = TRAY_HWND.set(hwnd.0 as isize);
     unsafe { register_hotkey(hwnd)? };
     add_tray_icon(hwnd)?;
 
     run_message_loop()?;
     Ok(())
+}
+
+fn detach_default_console_if_not_inherited() {
+    let console = unsafe { windows::Win32::System::Console::GetConsoleWindow() };
+    if console.0.is_null() {
+        return;
+    }
+
+    let mut process_ids = [0u32; 8];
+    let count = unsafe { GetConsoleProcessList(&mut process_ids) };
+
+    if count == 1 {
+        let _ = unsafe { FreeConsole() };
+    }
+}
+
+fn is_inheriting_console() -> bool {
+    let console = unsafe { windows::Win32::System::Console::GetConsoleWindow() };
+    if console.0.is_null() {
+        return false;
+    }
+
+    let mut process_ids = [0u32; 8];
+    let count = unsafe { GetConsoleProcessList(&mut process_ids) };
+    count > 1
+}
+
+fn attach_ctrl_c_handler() -> Result<()> {
+    unsafe { SetConsoleCtrlHandler(Some(ctrl_c_handler), true) }
+        .map_err(|error| eyre!("Failed to install Ctrl+C console handler: {error}"))
+}
+
+unsafe extern "system" fn ctrl_c_handler(ctrl_type: u32) -> BOOL {
+    match ctrl_type {
+        CTRL_C_EVENT | CTRL_BREAK_EVENT | CTRL_CLOSE_EVENT => {
+            if let Some(hwnd_bits) = TRAY_HWND.get().copied() {
+                let hwnd = HWND(hwnd_bits as *mut c_void);
+                let _ = unsafe { PostMessageW(Some(hwnd), WM_CLOSE, WPARAM(0), LPARAM(0)) };
+            }
+            BOOL(1)
+        }
+        _ => BOOL(0),
+    }
 }
 
 fn create_window() -> Result<HWND> {
@@ -182,17 +238,30 @@ unsafe fn unregister_hotkey(hwnd: HWND) {
 }
 
 fn add_tray_icon(hwnd: HWND) -> Result<()> {
-    let icon = unsafe { LoadIconW(None, IDI_APPLICATION) }.wrap_err("LoadIconW failed")?;
+    let icon = load_tray_icon()?;
     let data = notify_data(hwnd, icon);
     unsafe { Shell_NotifyIconW(NIM_ADD, &data).ok() }.wrap_err("Failed to add tray icon")?;
     Ok(())
 }
 
 fn re_add_tray_icon(hwnd: HWND) -> Result<()> {
-    let icon = unsafe { LoadIconW(None, IDI_APPLICATION) }.wrap_err("LoadIconW failed")?;
+    let icon = load_tray_icon()?;
     let data = notify_data(hwnd, icon);
     unsafe { Shell_NotifyIconW(NIM_ADD, &data).ok() }.wrap_err("Failed to re-add tray icon")?;
     Ok(())
+}
+
+fn load_tray_icon() -> Result<HICON> {
+    let module = unsafe { GetModuleHandleW(None) }.wrap_err("GetModuleHandleW failed")?;
+
+    match unsafe { LoadIconW(Some(module.into()), w!("main_icon")) } {
+        Ok(icon) => Ok(icon),
+        Err(error) => {
+            tracing::warn!("Failed to load embedded tray icon 'main_icon': {error}");
+            unsafe { LoadIconW(None, IDI_APPLICATION) }
+                .wrap_err("Failed to load fallback tray icon")
+        }
+    }
 }
 
 fn delete_tray_icon(hwnd: HWND) -> Result<()> {
