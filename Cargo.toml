@@ -13,8 +13,8 @@ eyre = "0.6.12"
 tracing = "0.1.41"
 tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
 directories-next = "2"
-facet = { git = "https://github.com/facet-rs/facet", branch = "main", version = "0.43" }
-figue = { git = "https://github.com/bearcove/figue", branch = "main" }
+facet = "0.44.1"
+figue = { package = "teamy-figue", version = "2.0.1", features = ["arbitrary"] }
 arboard = "3.6.1"
 windows = { version = "0.62.0", features = [
   "Win32_Foundation",
